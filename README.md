@@ -1,45 +1,70 @@
 # laya-ultrafast ⚡
 
-A browser agent with a dynamic, indexed action space — one goal in,
-typed operation + element decisions out. A port of
-[browser-use/jev-ultrafast](https://github.com/browser-use/jev-ultrafast)
-with the Jev API swapped for **[Laya](https://brainfunctioncollapse.com/laya)**,
-a local decision model that runs on your own GPU for $0.
+**A browser agent with a dynamic, indexed action space — powered by a local
+decision model instead of a cloud API.**
 
-![demo](assets/demo.mp4)
+Inspired by [browser-use/jev-ultrafast](https://github.com/browser-use/jev-ultrafast):
+same loop, same questions, same validation — but the Jev API call is swapped
+for **[Laya](https://brainfunctioncollapse.com/laya)**, running on your own
+GPU for $0.
 
-## How it works
+**SGN → KUL on Google Flights in ~6.5 seconds.** One natural-language goal,
+actual text generation, and loading waits included.
 
+<a href="assets/demo.mp4"><img src="assets/demo.gif" alt="A real Google Flights search at 1× speed, SGN to KUL, with Laya operation/target decisions" width="100%" /></a>
+
+[Watch the MP4](assets/demo.mp4) · [Read the loop](laya_agent.py)
+
+## The action space
+
+Every observation produces a new element table:
+
+```text
+[1] combobox  Where from?        · Ho Chi Minh City
+[2] combobox  Where to?          · empty
+[3] textbox   Departure          · empty
+[4] button    Search flights
+...
 ```
-goal ("one-way SGN → KUL")
-  → snapshot.js reads the DOM as a table (no screenshots, no vision model)
-  → Laya picks operation + target in one round trip (~100–190ms, $0)
-  → small LLM writes field text only (never picks actions)
-  → browser.py validates at commit (freshness, geometry, occlusion)
-  → Choose. Act. Repeat.
+
+```text
+                      one Laya request (:8770)
+                     ┌───────────────────────────┐
+page → element table → operation                 │
+                     │ click_target              │
+                     │ type_text_target          │
+                     └─────────────┬─────────────┘
+                         use the matching target
+                                   │
+                    CLICK [4] ─────┤──→ browser
+                TYPE_TEXT [2] ─────┘
+                          ↓
+                   small LLM → text → browser
 ```
+
+Target questions are speculative. If the operation is `CLICK`, only
+`click_target` can execute. Two decisions, **one local round trip**
+(~100–190ms, $0). Laya needs ≥2 options per choice, so single-candidate
+heads get a `[0] none of the above` pad stripped before validation.
 
 **Shortlist → batch → rerank.** Laya degrades past ~10 options per choice
 (measured 0.46/0.21/0.20/0.14 on 4 similar links), so big pages never reach
 it whole: code pre-filters to ≤10 per batch, batch winners advance, one
 final rerank over the top-3. See `shortlist()` + `choose()` in `laya_model.py`.
 
-Laya needs ≥2 options per choice, so single-candidate heads get a `[0] none
-of the above` pad that is stripped before validation (never executable).
-
-## Setup (model stays local — we ship setup, not weights)
+## Try it (model stays local — we ship setup, not weights)
 
 ```bash
-pip install laya                    # decision model
-python -m laya serve --port 8770    # local classifier (2.3 GB weights, first run downloads)
+git clone https://github.com/xuancuongdoo/laya-ultrafast.git
+cd laya-ultrafast
+pip install laya                      # decision model
+python -m laya serve --port 8770      # local classifier, weights download on first run
 pip install -r requirements.txt
-export TEXT_MODEL_API_KEY=...       # any OpenAI-compatible key, for field text only
-export LAYA_URL=http://127.0.0.1:8770/api/predict   # default
-
-python examples/flight_search.py    # SGN → KUL end-to-end
+export TEXT_MODEL_API_KEY=...         # any OpenAI-compatible key, field text only
+python examples/flight_search.py      # SGN → KUL end-to-end
 ```
 
-## vs jev-ultrafast
+## Proof vs jev-ultrafast
 
 |  | jev-ultrafast | laya-ultrafast |
 |---|---|---|
@@ -52,7 +77,7 @@ python examples/flight_search.py    # SGN → KUL end-to-end
 Honest limits (all measured, see video): the operation head bails to DONE
 on big pages and TYPE_TEXT never wins on its own — so the harness routes the
 operation in code and asks Laya *which* target. Laya shines as guard / judge /
-router, not as a drop-in click-picker. The proof video shows both sides.
+router, not as a drop-in click-picker.
 
 ## Files
 
