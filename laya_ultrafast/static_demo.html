@@ -1,0 +1,19 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>laya-ultrafast demo</title>
+<style>body{background:#0A0F1F;color:#e2e8f0;font-family:monospace;padding:20px;max-width:900px;margin:auto}
+input,button{font-family:monospace;padding:8px}input{width:70%}button{cursor:pointer}
+pre{background:#060a17;border:1px solid #1e293b;border-radius:8px;padding:10px;white-space:pre-wrap}
+img{max-width:100%;border-radius:8px}</style></head><body>
+<h2>laya-ultrafast demo</h2>
+<p><a href="/demo.mp4" style="color:#34d399">Watch the proof video (SGN→KUL, ~6.5s)</a></p>
+<input id="goal" value="One-way flight Ho Chi Minh City to Kuala Lumpur, 1 adult economy. Stop when results load.">
+<button onclick="start()">Start demo</button>
+<button onclick="tick()">Choose + act</button>
+<pre id="out">idle</pre><div id="shots"></div>
+<script>
+async function api(p, b){ const r = await fetch(p, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(b||{})}); return r.json(); }
+async function start(){ const s = await api("/api/start", {goal: document.getElementById("goal").value}); show(s); }
+async function tick(){ show(await api("/api/tick")); }
+function show(s){ document.getElementById("out").textContent = JSON.stringify({status:s.status, decisions:(s.decisions||[]).slice(-3), history:(s.history||[]).slice(-5)}, null, 1);
+ if (s.page && s.page.screenshot) document.getElementById("shots").innerHTML = "<img src='data:image/jpeg;base64,"+s.page.screenshot+"'>"; }
+setInterval(async ()=>{ const r = await fetch("/api/state"); show(await r.json()); }, 3000);
+</script></body></html>

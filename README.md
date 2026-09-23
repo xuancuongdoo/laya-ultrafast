@@ -11,9 +11,9 @@ GPU for $0.
 **SGN → KUL on Google Flights in ~6.5 seconds.** One natural-language goal,
 actual text generation, and loading waits included.
 
-<a href="assets/demo.mp4"><img src="assets/demo.gif" alt="A real Google Flights search at 1× speed, SGN to KUL, with Laya operation/target decisions" width="100%" /></a>
+<a href="docs/demo.mp4"><img src="docs/demo.gif" alt="A real Google Flights search at 1× speed, SGN to KUL, with Laya operation/target decisions" width="100%" /></a>
 
-[Watch the MP4](assets/demo.mp4) · [Read the loop](laya_agent.py)
+[Watch the MP4](docs/demo.mp4) · [Read the loop](laya_ultrafast/laya_agent.py)
 
 ## The action space
 
@@ -57,11 +57,18 @@ final rerank over the top-3. See `shortlist()` + `choose()` in `laya_model.py`.
 ```bash
 git clone https://github.com/xuancuongdoo/laya-ultrafast.git
 cd laya-ultrafast
-pip install laya                      # decision model
-python -m laya serve --port 8770      # local classifier, weights download on first run
-pip install -r requirements.txt
-export TEXT_MODEL_API_KEY=...         # any OpenAI-compatible key, field text only
-python examples/flight_search.py      # SGN → KUL end-to-end
+uv sync
+cp .env.example .env
+# Laya needs no key. Add TEXT_MODEL_API_KEY for field text only.
+uv run laya-ultrafast
+```
+
+Open **http://127.0.0.1:8766** and enter a goal. **Choose + act** pauses
+before execution. First, start Laya itself (weights download once, stay local):
+
+```bash
+uv pip install laya
+python -m laya serve --port 8770
 ```
 
 ## Proof vs jev-ultrafast

@@ -4,9 +4,9 @@ import base64
 import time
 from pathlib import Path
 
-from laya_browser import Browser, StalePage
-from laya_model import action_space, choose, field_context, field_text
-from questions import MAX_STEPS
+from laya_ultrafast.laya_browser import Browser, StalePage
+from laya_ultrafast.laya_model import action_space, choose, field_context, field_text
+from laya_ultrafast.questions import MAX_STEPS
 
 
 class LayaAgent:

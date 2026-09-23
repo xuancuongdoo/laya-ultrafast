@@ -11,7 +11,8 @@ try:
     from browser_harness.helpers import cdp
 except ImportError:
     # fallback: direct CDP over websocket (CDP_PORT env, default 9333)
-    import json as _json, urllib.request as _url
+    import json as _json
+    import urllib.request as _url
     def ensure_daemon(): pass
     def cdp(method, session_id=None, **params):
         import websocket
@@ -22,14 +23,16 @@ except ImportError:
             ws = websocket.create_connection(tgt["webSocketDebuggerUrl"], timeout=30)
         else:
             raise RuntimeError("session CDP needs browser_harness")
-        import itertools
-        mid = 0
+        _mid = [0]
+
         def send(m, p):
-            global mid
-            ws.send(_json.dumps({"id": mid, "method": m, "params": p or {}}))
+            _id = _mid[0]
+            _mid[0] += 1
+            ws.send(_json.dumps({"id": _id, "method": m, "params": p or {}}))
             while True:
                 msg = _json.loads(ws.recv())
-                if msg.get("id") == mid: return msg.get("result", msg)
+                if msg.get("id") == _id:
+                    return msg.get("result", msg)
         return send(method, params)
 
 # Atomically read visible content and controls, preserving actual DOM node identity.

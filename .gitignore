@@ -5,5 +5,5 @@ __pycache__/
 recordings/
 *.mp4
 *.png
-assets/demo.mp4
-assets/demo.gif
+docs/demo.mp4
+docs/demo.gif

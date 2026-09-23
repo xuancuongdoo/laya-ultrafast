@@ -10,9 +10,9 @@ import os
 import time
 import urllib.request
 
-LAYA_URL = os.environ.get("LAYA_URL", "http://127.0.0.1:8770/api/predict")
+from laya_ultrafast.questions import NEXT_ACTION, TARGET, TEXT_VALUE
 
-from questions import NEXT_ACTION, TARGET, TEXT_VALUE
+LAYA_URL = os.environ.get("LAYA_URL", "http://127.0.0.1:8770/api/predict")
 
 
 def post_json(url, body):
@@ -173,8 +173,11 @@ def choose(state, goal, history, per_batch=10, rerank_k=3):
         return {"choice": choice, "operation": operation, "target": None, "confidence": operation_answer["confidence"],
                 "probabilities": {choice: operation_answer["probabilities"][operation]},
                 "operation_probabilities": operation_answer["probabilities"],
-                "target_probabilities": {}, "target_confidence": None, "raw_answers": {"operation": op_a},
-                "model": op_a.get("model"), "usage": {}, "latency_ms": round((_t.perf_counter() - started) * 1000), "request": None,
+                "target_probabilities": {}, "target_confidence": None,
+                "raw_answers": {"operation": op_a},
+                "model": op_a.get("model"), "usage": {},
+                "latency_ms": round((_t.perf_counter() - started) * 1000),
+                "request": None,
                 "debug": {"batches": 0, "reranked": 0}}
     # 2. batch target heads (<=10 each), keep winners
     cands = targets[operation]

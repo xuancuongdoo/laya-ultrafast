@@ -3,10 +3,8 @@
 One-way, 1 adult, economy, earliest date. Laya picks targets on :8770,
 a small text model fills fields, guard approves the search click.
 """
-import sys
 
-sys.path.insert(0, "..")
-from laya_agent import LayaAgent
+from laya_ultrafast import LayaAgent
 
 GOAL = (
     "One-way flight Ho Chi Minh City (SGN) to Kuala Lumpur (KUL), "
