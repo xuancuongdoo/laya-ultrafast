@@ -4,12 +4,12 @@ import base64
 import time
 from pathlib import Path
 
-from laya_ultrafast.laya_browser import Browser, StalePage
-from laya_ultrafast.laya_model import action_space, choose, field_context, field_text
-from laya_ultrafast.questions import MAX_STEPS
+from backends.laya.model import action_space, choose, field_context, field_text
+from ultrafast.browser import Browser, StalePage
+from ultrafast.questions import MAX_STEPS
 
 
-class LayaAgent:
+class Agent:
     def __init__(self, url, goals, *, record_dir=None, screenshots=False):
         task = goals.strip() if isinstance(goals, str) else "\n".join(goals).strip()
         if not task:

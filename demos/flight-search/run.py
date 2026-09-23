@@ -4,7 +4,7 @@ One-way, 1 adult, economy, earliest date. Laya picks targets on :8770,
 a small text model fills fields, guard approves the search click.
 """
 
-from laya_ultrafast import LayaAgent
+from ultrafast import Agent
 
 GOAL = (
     "One-way flight Ho Chi Minh City (SGN) to Kuala Lumpur (KUL), "
@@ -13,7 +13,7 @@ GOAL = (
 )
 
 if __name__ == "__main__":
-    with LayaAgent("https://www.google.com/travel/flights?hl=en",
+    with Agent("https://www.google.com/travel/flights?hl=en",
                    GOAL, record_dir="./recordings") as agent:
         for snap in agent.run():
             d = snap["decisions"][-1] if snap["decisions"] else {}

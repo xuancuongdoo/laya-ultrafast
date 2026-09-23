@@ -10,7 +10,7 @@ import os
 import time
 import urllib.request
 
-from laya_ultrafast.questions import NEXT_ACTION, TARGET, TEXT_VALUE
+from ultrafast.questions import NEXT_ACTION, TARGET, TEXT_VALUE
 
 LAYA_URL = os.environ.get("LAYA_URL", "http://127.0.0.1:8770/api/predict")
 

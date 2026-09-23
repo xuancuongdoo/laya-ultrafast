@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-from .laya_agent import LayaAgent
+from ultrafast.agent import Agent
 
 ROOT = Path(__file__).parent
 PORT = int(os.environ.get("LAYA_DEMO_PORT", "8766"))
@@ -70,7 +70,7 @@ class Handler(BaseHTTPRequestHandler):
                 if AGENT:
                     AGENT.close()
                 url = body.get("url") or "https://www.google.com/travel/flights?hl=en"
-                AGENT = LayaAgent(url, goal, screenshots=True)
+                AGENT = Agent(url, goal, screenshots=True)
             elif path == "/api/tick":
                 if AGENT is None:
                     raise ValueError("Start a demo first")

@@ -7,7 +7,7 @@ requires-python = ">=3.12"
 dependencies = ["browser-harness", "httpx>=0.28,<1", "laya"]
 
 [project.scripts]
-laya-ultrafast = "laya_ultrafast.demo:main"
+ultrafast = "ultrafast.demo:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -21,3 +21,6 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["ultrafast", "backends"]
