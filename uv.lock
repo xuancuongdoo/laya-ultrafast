@@ -327,9 +327,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "browser-harness" },
+    { name = "browser-harness", specifier = ">=0.1.13" },
     { name = "httpx", specifier = ">=0.28,<1" },
-    { name = "laya" },
+    { name = "laya", specifier = ">=0.3.7" },
 ]
 
 [package.metadata.requires-dev]

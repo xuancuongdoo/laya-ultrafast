@@ -1,0 +1,130 @@
+{
+  "generated_at": "2026-09-23T14:09:32+00:00",
+  "backend": "backends.mock.model (offline, rule-based; no browser, no network)",
+  "mode": "offline decision-layer replay (choose() over fixed page-shapes)",
+  "total_wall_ms": 1,
+  "choose_latency_ms": {
+    "n": 200,
+    "p50": 0.012,
+    "p95": 0.012,
+    "max": 0.015
+  },
+  "summary": {
+    "wikipedia": {
+      "runs": 5,
+      "success": 5,
+      "success_rate": 1.0,
+      "steps_median": 3,
+      "steps_range": [
+        3,
+        3
+      ],
+      "decisions_median": 4,
+      "backend_latency_ms_median": 0,
+      "wall_ms_median": 0,
+      "wall_ms_range": [
+        0,
+        0
+      ]
+    },
+    "flight-shape": {
+      "runs": 5,
+      "success": 5,
+      "success_rate": 1.0,
+      "steps_median": 3,
+      "steps_range": [
+        3,
+        3
+      ],
+      "decisions_median": 4,
+      "backend_latency_ms_median": 0,
+      "wall_ms_median": 0,
+      "wall_ms_range": [
+        0,
+        0
+      ]
+    }
+  },
+  "runs": [
+    {
+      "task": "wikipedia",
+      "success": true,
+      "steps": 3,
+      "decisions": 4,
+      "backend_latency_ms": 0,
+      "wall_ms": 0
+    },
+    {
+      "task": "flight-shape",
+      "success": true,
+      "steps": 3,
+      "decisions": 4,
+      "backend_latency_ms": 0,
+      "wall_ms": 0
+    },
+    {
+      "task": "wikipedia",
+      "success": true,
+      "steps": 3,
+      "decisions": 4,
+      "backend_latency_ms": 0,
+      "wall_ms": 0
+    },
+    {
+      "task": "flight-shape",
+      "success": true,
+      "steps": 3,
+      "decisions": 4,
+      "backend_latency_ms": 0,
+      "wall_ms": 0
+    },
+    {
+      "task": "wikipedia",
+      "success": true,
+      "steps": 3,
+      "decisions": 4,
+      "backend_latency_ms": 0,
+      "wall_ms": 0
+    },
+    {
+      "task": "flight-shape",
+      "success": true,
+      "steps": 3,
+      "decisions": 4,
+      "backend_latency_ms": 0,
+      "wall_ms": 0
+    },
+    {
+      "task": "wikipedia",
+      "success": true,
+      "steps": 3,
+      "decisions": 4,
+      "backend_latency_ms": 0,
+      "wall_ms": 0
+    },
+    {
+      "task": "flight-shape",
+      "success": true,
+      "steps": 3,
+      "decisions": 4,
+      "backend_latency_ms": 0,
+      "wall_ms": 0
+    },
+    {
+      "task": "wikipedia",
+      "success": true,
+      "steps": 3,
+      "decisions": 4,
+      "backend_latency_ms": 0,
+      "wall_ms": 0
+    },
+    {
+      "task": "flight-shape",
+      "success": true,
+      "steps": 3,
+      "decisions": 4,
+      "backend_latency_ms": 0,
+      "wall_ms": 0
+    }
+  ]
+}

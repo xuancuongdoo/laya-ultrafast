@@ -9,6 +9,8 @@ SGN → KUL on Google Flights in ~6.5 seconds, text generation and loading waits
 | Demo | What |
 | --- | --- |
 | [Flight search](demos/flight-search/run.py) | SGN → KUL one-way, 1 adult economy, earliest date (~6.5 s) |
+| [Wikipedia](demos/wikipedia/run.py) | Search "Ada Lovelace", open the mathematician article (mock backend, offline) |
+| [Benchmarks](docs/benchmarks.md) | Offline decision-layer replay: 5 runs x 2 tasks, 100% success (raw: `benchmarks.json`) |
 
 <a href="docs/demo.mp4"><img src="docs/demo.gif" alt="Google Flights search at 1× speed, SGN to KUL" width="100%" /></a>
 
@@ -38,6 +40,10 @@ Swap `backends/laya` without touching the loop — [model.py](backends/laya/mode
 ```python
 choose(state, goal, history)  # -> operation + target; see ultrafast/agent.py
 ```
+
+`backends/mock` implements the same contract rule-based and offline
+(quote the field value in the goal); `demos/wikipedia/run.py` runs on
+either backend via `Agent(..., backend=...)`.
 
 ## laya-ultrafast vs jev-ultrafast
 

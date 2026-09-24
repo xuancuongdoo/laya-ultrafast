@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "laya-ultrafast audit report",
+  "description": "Single source of truth for audit report shape. records/reports.py derives reports in this shape and cross-checks its field list against this file; do not duplicate field lists in code.",
+  "type": "object",
+  "required": ["title", "date", "commit", "areas", "findings", "coverage"],
+  "properties": {
+    "title": { "type": "string" },
+    "date": { "type": "string" },
+    "commit": { "type": "string" },
+    "areas": { "type": "array", "items": { "type": "string" } },
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "coverage": { "type": "number" }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": ["id", "area", "severity", "detail"],
+      "properties": {
+        "id": { "type": "string" },
+        "area": { "type": "string" },
+        "severity": { "type": "string", "enum": ["info", "low", "medium", "high", "critical"] },
+        "detail": { "type": "string" },
+        "digest": { "type": "string" }
+      }
+    }
+  }
+}

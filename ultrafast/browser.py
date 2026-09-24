@@ -13,9 +13,13 @@ except ImportError:
     # fallback: direct CDP over websocket (CDP_PORT env, default 9333)
     import json as _json
     import urllib.request as _url
-    def ensure_daemon(): pass
+
+    def ensure_daemon():
+        pass
+
     def cdp(method, session_id=None, **params):
         import websocket
+
         _base = "http://127.0.0.1:%s" % __import__("os").environ.get("CDP_PORT", "9333")
         if session_id is None:
             ts = _json.load(_url.urlopen(_base + "/json/list", timeout=10))
@@ -33,11 +37,14 @@ except ImportError:
                 msg = _json.loads(ws.recv())
                 if msg.get("id") == _id:
                     return msg.get("result", msg)
+
         return send(method, params)
+
 
 # Atomically read visible content and controls, preserving actual DOM node identity.
 READ_STATE = Path(__file__).with_name("snapshot.js").read_text()
 MARKER = f"(() => {{ const state={READ_STATE}; return state?.marker ?? null; }})()"
+
 
 class StalePage(ValueError):
     """A decision no longer refers to the observed page."""
@@ -94,7 +101,9 @@ class Browser:
                         else requestAnimationFrame(ready);
                       };
                       requestAnimationFrame(ready);
-                    }))(""" + json.dumps(action) + ")",
+                    }))("""
+                    + json.dumps(action)
+                    + ")",
                     awaitPromise=True,
                     returnByValue=True,
                 )
@@ -102,9 +111,7 @@ class Browser:
                 pass
         for attempt in range(10):
             try:
-                return browser_operation(
-                    {"operation": "observe", "session": self.session, "screenshot": screenshot}
-                )
+                return browser_operation({"operation": "observe", "session": self.session, "screenshot": screenshot})
             except StalePage:
                 if attempt == 9:
                     raise
@@ -167,7 +174,8 @@ def browser_operation(request):
             if type(action["node"]) is not int:
                 raise ValueError("Invalid observed node")
             # Code-owned node IDs refer to actual observed elements, never model-generated selectors.
-            target = evaluate("""(action => {
+            target = evaluate(
+                """(action => {
               const e=window.__ultrafast?.nodes.get(action.node);
               if (!e?.isConnected || e.matches(':disabled') || e.closest('[aria-disabled="true"],[inert]') ||
                   !e.checkVisibility({checkOpacity:true,checkVisibilityCSS:true})) return null;
@@ -183,7 +191,10 @@ def browser_operation(request):
                 e.dispatchEvent(new Event('change',{bubbles:true}));
               }
               return {x,y};
-            })(""" + json.dumps(action) + ")")
+            })("""
+                + json.dumps(action)
+                + ")"
+            )
             if target is None:
                 if kind == "select":
                     raise RuntimeError("Dropdown execution was not confirmed; inspect before retrying.")

@@ -4,6 +4,7 @@ Port of browser-use/jev-ultrafast model.py: same one-request-per-cycle
 shape (operation choice + speculative target heads), but POSTs to the
 local Laya classifier (:8770) instead of TypeSafe's API. $0, ~50-200ms.
 """
+
 import json
 import math
 import os
@@ -16,8 +17,7 @@ LAYA_URL = os.environ.get("LAYA_URL", "http://127.0.0.1:8770/api/predict")
 
 
 def post_json(url, body):
-    req = urllib.request.Request(url, data=json.dumps(body).encode(),
-                                 headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=120) as r:
         return json.load(r)
 
@@ -28,14 +28,14 @@ def post_text_model(base, key, body):
             req = urllib.request.Request(
                 base.rstrip("/") + "/chat/completions",
                 data=json.dumps(body).encode(),
-                headers={"Content-Type": "application/json",
-                         "Authorization": "Bearer " + key})
+                headers={"Content-Type": "application/json", "Authorization": "Bearer " + key},
+            )
             with urllib.request.urlopen(req, timeout=60) as r:
                 return json.load(r)
         except Exception:
             if attempt == 2:
                 raise RuntimeError("Model connection failed; no action executed.")
-            time.sleep(0.5 * 2 ** attempt)
+            time.sleep(0.5 * 2**attempt)
     raise RuntimeError("Model unavailable")
 
 
@@ -112,14 +112,19 @@ def field_text(context):
     base = os.environ.get("TEXT_MODEL_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
     model = os.environ.get("TEXT_MODEL", "x-ai/grok-4-1-fast")
     started = time.perf_counter()
-    result = post_text_model(base, key, {
-        "model": model, "max_tokens": 1024,
-        "response_format": {"type": "json_object"},
-        "messages": [
-            {"role": "system", "content": TEXT_VALUE},
-            {"role": "user", "content": json.dumps(context)},
-        ],
-    })
+    result = post_text_model(
+        base,
+        key,
+        {
+            "model": model,
+            "max_tokens": 1024,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {"role": "system", "content": TEXT_VALUE},
+                {"role": "user", "content": json.dumps(context)},
+            ],
+        },
+    )
     try:
         output = json.loads(result["choices"][0]["message"]["content"])
         value = output["text"]
@@ -132,24 +137,32 @@ def field_text(context):
         "latency_ms": round((time.perf_counter() - started) * 1000),
         "usage": result.get("usage", {}),
     }
+
+
 def shortlist(candidates, goal, per_batch=10):
     """Code pre-filter: rank candidates by keyword overlap with goal, chunk into <=10."""
     words = set(goal.lower().split())
+
     def score(a):
         text = (a.get("label", "") + " " + str(a.get("value", ""))).lower()
         return len(words & set(text.split()))
+
     ranked = sorted(candidates.items(), key=lambda kv: score(kv[1]), reverse=True)
-    return [dict(ranked[i:i + per_batch]) for i in range(0, len(ranked), per_batch)]
+    return [dict(ranked[i : i + per_batch]) for i in range(0, len(ranked), per_batch)]
+
 
 def _ask(question_id, criteria, instructions, state_obj):
-    body = {"state": state_obj,
-            "questions": {question_id: {"type": "choice", "criteria": criteria,
-                                        "instructions": instructions}}}
+    body = {
+        "state": state_obj,
+        "questions": {question_id: {"type": "choice", "criteria": criteria, "instructions": instructions}},
+    }
     return post_json(LAYA_URL, body)["answers"][question_id]
+
 
 def choose(state, goal, history, per_batch=10, rerank_k=3):
     """Shortlist -> batch (<=10) -> rerank top-3. Returns same shape as before."""
     import time as _t
+
     started = _t.perf_counter()
     elements, targets, controls = action_space(state["actions"])
     labels = {
@@ -170,15 +183,22 @@ def choose(state, goal, history, per_batch=10, rerank_k=3):
     operation = operation_answer["choice"]
     if operation not in targets:
         choice = controls[operation]["id"] if operation in controls else operation
-        return {"choice": choice, "operation": operation, "target": None, "confidence": operation_answer["confidence"],
-                "probabilities": {choice: operation_answer["probabilities"][operation]},
-                "operation_probabilities": operation_answer["probabilities"],
-                "target_probabilities": {}, "target_confidence": None,
-                "raw_answers": {"operation": op_a},
-                "model": op_a.get("model"), "usage": {},
-                "latency_ms": round((_t.perf_counter() - started) * 1000),
-                "request": None,
-                "debug": {"batches": 0, "reranked": 0}}
+        return {
+            "choice": choice,
+            "operation": operation,
+            "target": None,
+            "confidence": operation_answer["confidence"],
+            "probabilities": {choice: operation_answer["probabilities"][operation]},
+            "operation_probabilities": operation_answer["probabilities"],
+            "target_probabilities": {},
+            "target_confidence": None,
+            "raw_answers": {"operation": op_a},
+            "model": op_a.get("model"),
+            "usage": {},
+            "latency_ms": round((_t.perf_counter() - started) * 1000),
+            "request": None,
+            "debug": {"batches": 0, "reranked": 0},
+        }
     # 2. batch target heads (<=10 each), keep winners
     cands = targets[operation]
     batches = shortlist(cands, goal, per_batch)
@@ -188,8 +208,12 @@ def choose(state, goal, history, per_batch=10, rerank_k=3):
         crit = {i: "[%s] %s" % (i, short_label(a["label"])) for i, a in b.items()}
         if len(crit) == 1:
             crit["0"] = "[0] none of the above"
-        ans = _ask(operation.lower() + "_target", crit,
-                   "Goal: %s. Pick the best target for %s. %s" % (goal, operation, TARGET), state_obj)
+        ans = _ask(
+            operation.lower() + "_target",
+            crit,
+            "Goal: %s. Pick the best target for %s. %s" % (goal, operation, TARGET),
+            state_obj,
+        )
         probs = {k: v for k, v in ans["probabilities"].items() if k != "0"}
         batch_answers.append(ans)
         if probs:
@@ -205,19 +229,30 @@ def choose(state, goal, history, per_batch=10, rerank_k=3):
         tconf = winners[0][1]
         tprobs = {target: 1.0}
     else:
-        ans = _ask(operation.lower() + "_rerank", final,
-                   "Goal: %s. Final pick for %s among shortlisted best. %s" % (goal, operation, TARGET), state_obj)
+        ans = _ask(
+            operation.lower() + "_rerank",
+            final,
+            "Goal: %s. Final pick for %s among shortlisted best. %s" % (goal, operation, TARGET),
+            state_obj,
+        )
         target_answer = validate_choice({**ans, "probabilities": dict(ans["probabilities"])}, final)
         target = target_answer["choice"]
         tconf = target_answer["confidence"]
         tprobs = target_answer["probabilities"]
     choice = cands[target]["id"]
-    return {"choice": choice, "operation": operation, "target": target,
-            "confidence": operation_answer["confidence"],
-            "probabilities": {cands[i]["id"]: (tprobs.get(i, 0)) for i in final},
-            "operation_probabilities": operation_answer["probabilities"],
-            "target_probabilities": tprobs, "target_confidence": tconf,
-            "raw_answers": {"operation": op_a, "batches": len(batches)},
-            "model": op_a.get("model"), "usage": {},
-            "latency_ms": round((_t.perf_counter() - started) * 1000), "request": None,
-            "debug": {"batches": len(batches), "reranked": len(final)}}
+    return {
+        "choice": choice,
+        "operation": operation,
+        "target": target,
+        "confidence": operation_answer["confidence"],
+        "probabilities": {cands[i]["id"]: (tprobs.get(i, 0)) for i in final},
+        "operation_probabilities": operation_answer["probabilities"],
+        "target_probabilities": tprobs,
+        "target_confidence": tconf,
+        "raw_answers": {"operation": op_a, "batches": len(batches)},
+        "model": op_a.get("model"),
+        "usage": {},
+        "latency_ms": round((_t.perf_counter() - started) * 1000),
+        "request": None,
+        "debug": {"batches": len(batches), "reranked": len(final)},
+    }

@@ -11,6 +11,7 @@ from ultrafast.questions import MAX_STEPS
 class Agent:
     def __init__(self, url, goals, *, record_dir=None, screenshots=False, backend=None):
         import importlib
+
         self.backend = importlib.import_module(backend or "backends.laya.model")
         task = goals.strip() if isinstance(goals, str) else "\n".join(goals).strip()
         if not task:

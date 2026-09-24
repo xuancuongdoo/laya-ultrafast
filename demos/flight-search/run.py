@@ -13,11 +13,11 @@ GOAL = (
 )
 
 if __name__ == "__main__":
-    with Agent("https://www.google.com/travel/flights?hl=en",
-                   GOAL, record_dir="./recordings") as agent:
+    with Agent("https://www.google.com/travel/flights?hl=en", GOAL, record_dir="./recordings") as agent:
         for snap in agent.run():
             d = snap["decisions"][-1] if snap["decisions"] else {}
-            print("%s [%s] conf=%.2f %dms" % (
-                d.get("operation"), d.get("target"),
-                d.get("confidence", 0), d.get("latency_ms", 0)))
+            print(
+                "%s [%s] conf=%.2f %dms"
+                % (d.get("operation"), d.get("target"), d.get("confidence", 0), d.get("latency_ms", 0))
+            )
         print("status:", agent.state["status"])
