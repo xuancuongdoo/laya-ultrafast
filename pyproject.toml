@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "A browser agent that chooses instead of generating — powered by local Laya."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["browser-harness", "httpx>=0.28,<1", "laya"]
+dependencies = ["browser-harness>=0.1.13", "httpx>=0.28,<1", "laya>=0.3.7"]
 
 [project.scripts]
 ultrafast = "ultrafast.demo:main"
@@ -20,7 +20,7 @@ dev = ["pytest>=8.4,<9", "ruff>=0.14,<1"]
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
+select = ["E", "F", "I", "TID252"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["ultrafast", "backends"]

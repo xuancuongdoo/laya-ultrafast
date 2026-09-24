@@ -1,0 +1,92 @@
+{
+  "title": "weekly-audit",
+  "date": "2026-09-23",
+  "commit": "9991e59",
+  "areas": [
+    "backends/laya/__init__.py",
+    "backends/laya/model.py",
+    "backends/mock/__init__.py",
+    "backends/mock/model.py",
+    "demos/flight-search/run.py",
+    "demos/wikipedia/run.py",
+    "scripts/bench_mock.py",
+    "security/__init__.py",
+    "security/hunting/__init__.py",
+    "security/hunting/critics.py",
+    "security/hunting/playbooks/__init__.py",
+    "security/hunting/playbooks/done_safety.py",
+    "security/hunting/playbooks/prompt_injection.py",
+    "security/hunting/playbooks/secrets.py",
+    "security/orchestration/__init__.py",
+    "security/orchestration/orchestrator.py",
+    "security/orchestration/prior_evidence.py",
+    "security/orchestration/sandbox.py",
+    "security/reconnaissance/__init__.py",
+    "security/reconnaissance/ledger.py",
+    "security/reconnaissance/phase.py",
+    "security/records/__init__.py",
+    "security/records/chain.py",
+    "security/records/reports.py",
+    "security/run_audit.py",
+    "tests/test_hunting.py",
+    "tests/test_mock_backend.py",
+    "tests/test_security_layer.py",
+    "tests/test_shortlist.py",
+    "ultrafast/__init__.py",
+    "ultrafast/agent.py",
+    "ultrafast/browser.py",
+    "ultrafast/demo.py",
+    "ultrafast/questions.py"
+  ],
+  "findings": [
+    {
+      "id": "backends/laya/model.py:12:network-fetch",
+      "area": "backends/laya/model.py",
+      "severity": "info",
+      "detail": "network-fetch at backends/laya/model.py:12: import urllib.request"
+    },
+    {
+      "id": "backends/laya/model.py:20:network-fetch",
+      "area": "backends/laya/model.py",
+      "severity": "info",
+      "detail": "network-fetch at backends/laya/model.py:20: req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={\"Content-Type\": \"application/json\"})"
+    },
+    {
+      "id": "backends/laya/model.py:21:network-fetch",
+      "area": "backends/laya/model.py",
+      "severity": "info",
+      "detail": "network-fetch at backends/laya/model.py:21: with urllib.request.urlopen(req, timeout=120) as r:"
+    },
+    {
+      "id": "backends/laya/model.py:28:network-fetch",
+      "area": "backends/laya/model.py",
+      "severity": "info",
+      "detail": "network-fetch at backends/laya/model.py:28: req = urllib.request.Request("
+    },
+    {
+      "id": "backends/laya/model.py:33:network-fetch",
+      "area": "backends/laya/model.py",
+      "severity": "info",
+      "detail": "network-fetch at backends/laya/model.py:33: with urllib.request.urlopen(req, timeout=60) as r:"
+    },
+    {
+      "id": "ultrafast/browser.py:15:network-fetch",
+      "area": "ultrafast/browser.py",
+      "severity": "info",
+      "detail": "network-fetch at ultrafast/browser.py:15: import urllib.request as _url"
+    },
+    {
+      "id": "ultrafast/browser.py:25:network-fetch",
+      "area": "ultrafast/browser.py",
+      "severity": "info",
+      "detail": "network-fetch at ultrafast/browser.py:25: ts = _json.load(_url.urlopen(_base + \"/json/list\", timeout=10))"
+    },
+    {
+      "id": "ultrafast/demo.py:7:network-fetch",
+      "area": "ultrafast/demo.py",
+      "severity": "info",
+      "detail": "network-fetch at ultrafast/demo.py:7: from urllib.parse import urlparse"
+    }
+  ],
+  "coverage": 1.0
+}

@@ -12,8 +12,7 @@ def test_shortlist_chunks():
 
 
 def test_validate_choice_rejects_pad():
-    ans = {"choice": "1", "confidence": 0.8,
-           "probabilities": {"1": 0.8, "0": 0.2}}
+    ans = {"choice": "1", "confidence": 0.8, "probabilities": {"1": 0.8, "0": 0.2}}
     try:
         validate_choice(ans, {"1": {}})
         raise AssertionError("pad leaked through")

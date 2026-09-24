@@ -4,20 +4,43 @@ Port of browser-use/jev-ultrafast model.py: same one-request-per-cycle
 shape (operation choice + speculative target heads), but POSTs to the
 local Laya classifier (:8770) instead of TypeSafe's API. $0, ~50-200ms.
 """
+
 import json
 import math
 import os
 import time
 import urllib.request
+from typing import Any
 
+from ultrafast.models import (
+    ActionElement,
+    ActionOption,
+    ActionSpace,
+    Decision,
+    FieldContext,
+    FieldTextResult,
+    ObservedAction,
+    PageObservation,
+)
 from ultrafast.questions import NEXT_ACTION, TARGET, TEXT_VALUE
 
 LAYA_URL = os.environ.get("LAYA_URL", "http://127.0.0.1:8770/api/predict")
 
 
+def _get(obj: Any, key: str, default: Any = None) -> Any:
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
+def _action_dict(action: Any) -> dict:
+    if isinstance(action, dict):
+        return action
+    return action.to_dict() if hasattr(action, "to_dict") else dict(action)
+
+
 def post_json(url, body):
-    req = urllib.request.Request(url, data=json.dumps(body).encode(),
-                                 headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=120) as r:
         return json.load(r)
 
@@ -28,14 +51,14 @@ def post_text_model(base, key, body):
             req = urllib.request.Request(
                 base.rstrip("/") + "/chat/completions",
                 data=json.dumps(body).encode(),
-                headers={"Content-Type": "application/json",
-                         "Authorization": "Bearer " + key})
+                headers={"Content-Type": "application/json", "Authorization": "Bearer " + key},
+            )
             with urllib.request.urlopen(req, timeout=60) as r:
                 return json.load(r)
         except Exception:
             if attempt == 2:
                 raise RuntimeError("Model connection failed; no action executed.")
-            time.sleep(0.5 * 2 ** attempt)
+            time.sleep(0.5 * 2**attempt)
     raise RuntimeError("Model unavailable")
 
 
@@ -57,37 +80,45 @@ def validate_choice(answer, ids):
     return answer
 
 
-def action_space(actions):
+def action_space(actions) -> ActionSpace:
     """One index per observed element; each operation has its own valid target choices."""
-    elements, indices, targets, controls = [], {}, {}, {}
+    if isinstance(actions, dict):
+        actions = actions.get("actions", [])
+    raw = [_action_dict(a) for a in actions]
+    elements: list[ActionElement] = []
+    indices, targets, controls = {}, {}, {}
     operations = {"click": "CLICK", "fill": "TYPE_TEXT", "select": "SELECT"}
-    for action in actions:
+    for action in raw:
         kind = action["kind"]
         if kind not in operations:
-            controls[action["id"].upper()] = action
+            controls[action["id"].upper()] = ObservedAction.from_dict(action)
             continue
         node = action["node"]
         if node not in indices:
             index = str(len(elements) + 1)
             indices[node] = index
-            element = {k: action[k] for k in ("role", "value", "checked", "selected", "expanded") if k in action}
-            element.update(index=index, label=action["label"].split(" → ")[0], operations=[])
+            element = ActionElement(
+                index=index,
+                label=action["label"].split(" → ")[0],
+                operations=[],
+                **{k: action[k] for k in ("role", "value", "checked", "selected", "expanded") if k in action},
+            )
             if kind == "select":
-                element["value"] = action.get("current_value", "")
-                element["options"] = []
+                element.value = action.get("current_value", "")
+                element.options = []
             elements.append(element)
         index = indices[node]
         operation = operations[kind]
         group = targets.setdefault(operation, {})
         element = elements[int(index) - 1]
-        if operation not in element["operations"]:
-            element["operations"].append(operation)
+        if operation not in element.operations:
+            element.operations.append(operation)
         target = index
         if kind == "select":
-            target = "%s:%d" % (index, len(element["options"]) + 1)
-            element["options"].append({"index": target, "label": action["label"], "value": action["value"]})
-        group[target] = action
-    return elements, targets, controls
+            target = "%s:%d" % (index, len(element.options) + 1)
+            element.options.append(ActionOption(index=target, label=action["label"], value=action["value"]))
+        group[target] = ObservedAction.from_dict(action)
+    return ActionSpace(elements=elements, targets=targets, controls=controls)
 
 
 def short_label(label, limit=60):
@@ -95,31 +126,40 @@ def short_label(label, limit=60):
     return label if len(label) <= limit else label[: limit - 1] + "…"
 
 
-def field_context(goal, action, page, history):
-    return {
-        "goal": goal,
-        "field": {k: action.get(k) for k in ("label", "role", "value")},
-        "page": {"title": page["title"], "text": page["text"][:6000]},
-        "recent_actions": [{k: h.get(k) for k in ("action", "text")} for h in history[-6:]],
-    }
+def field_context(goal, action, page, history) -> FieldContext:
+    action_d = _action_dict(action)
+    page_d = page.to_dict() if hasattr(page, "to_dict") else (page if isinstance(page, dict) else {})
+    hist = [h.to_dict() if hasattr(h, "to_dict") else dict(h) for h in history]
+    return FieldContext(
+        goal=goal,
+        field={k: action_d.get(k) for k in ("label", "role", "value")},
+        page={"title": page_d.get("title"), "text": page_d.get("text", "")[:6000]},
+        recent_actions=[{k: h.get(k) for k in ("action", "text")} for h in hist[-6:]],
+    )
 
 
-def field_text(context):
+def field_text(context) -> tuple[str, dict]:
     """Text comes from a small OpenAI-compatible model (never Laya, never hardcoded)."""
+    ctx = context.to_dict() if hasattr(context, "to_dict") else dict(context)
     key = os.environ.get("TEXT_MODEL_API_KEY")
     if not key:
         raise ValueError("TYPE_TEXT needs TEXT_MODEL_API_KEY; no text is hardcoded or guessed by the executor.")
     base = os.environ.get("TEXT_MODEL_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
     model = os.environ.get("TEXT_MODEL", "x-ai/grok-4-1-fast")
     started = time.perf_counter()
-    result = post_text_model(base, key, {
-        "model": model, "max_tokens": 1024,
-        "response_format": {"type": "json_object"},
-        "messages": [
-            {"role": "system", "content": TEXT_VALUE},
-            {"role": "user", "content": json.dumps(context)},
-        ],
-    })
+    result = post_text_model(
+        base,
+        key,
+        {
+            "model": model,
+            "max_tokens": 1024,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {"role": "system", "content": TEXT_VALUE},
+                {"role": "user", "content": json.dumps(ctx)},
+            ],
+        },
+    )
     try:
         output = json.loads(result["choices"][0]["message"]["content"])
         value = output["text"]
@@ -127,31 +167,46 @@ def field_text(context):
             raise ValueError()
     except (ValueError, KeyError, TypeError):
         raise ValueError("Text helper returned no valid field value; nothing typed.") from None
-    return value, {
-        "model": model,
-        "latency_ms": round((time.perf_counter() - started) * 1000),
-        "usage": result.get("usage", {}),
-    }
+    helper = FieldTextResult(
+        value=value,
+        model=model,
+        latency_ms=round((time.perf_counter() - started) * 1000),
+        usage=result.get("usage", {}),
+    )
+    return value, {"model": helper.model, "latency_ms": helper.latency_ms, "usage": helper.usage}
+
+
 def shortlist(candidates, goal, per_batch=10):
     """Code pre-filter: rank candidates by keyword overlap with goal, chunk into <=10."""
     words = set(goal.lower().split())
+
     def score(a):
-        text = (a.get("label", "") + " " + str(a.get("value", ""))).lower()
+        a_d = _action_dict(a)
+        text = (a_d.get("label", "") + " " + str(a_d.get("value", ""))).lower()
         return len(words & set(text.split()))
+
     ranked = sorted(candidates.items(), key=lambda kv: score(kv[1]), reverse=True)
-    return [dict(ranked[i:i + per_batch]) for i in range(0, len(ranked), per_batch)]
+    return [dict(ranked[i : i + per_batch]) for i in range(0, len(ranked), per_batch)]
+
 
 def _ask(question_id, criteria, instructions, state_obj):
-    body = {"state": state_obj,
-            "questions": {question_id: {"type": "choice", "criteria": criteria,
-                                        "instructions": instructions}}}
+    body = {
+        "state": state_obj,
+        "questions": {question_id: {"type": "choice", "criteria": criteria, "instructions": instructions}},
+    }
     return post_json(LAYA_URL, body)["answers"][question_id]
 
-def choose(state, goal, history, per_batch=10, rerank_k=3):
+
+def choose(state, goal, history, per_batch=10, rerank_k=3) -> Decision:
     """Shortlist -> batch (<=10) -> rerank top-3. Returns same shape as before."""
     import time as _t
+
     started = _t.perf_counter()
-    elements, targets, controls = action_space(state["actions"])
+    page_d = state.to_dict() if hasattr(state, "to_dict") else dict(state)
+    hist = [h.to_dict() if hasattr(h, "to_dict") else dict(h) for h in history]
+    space = action_space(page_d.get("actions", []))
+    targets = {_op: {t: a.to_dict() for t, a in grp.items()} for _op, grp in space.targets.items()}
+    controls = {k: v.to_dict() for k, v in space.controls.items()}
     labels = {
         "CLICK": "Click an element, button, menu option, autocomplete suggestion, or calendar day.",
         "TYPE_TEXT": "Enter or replace text in an editable field. A small LLM will supply the value from the goal.",
@@ -160,9 +215,10 @@ def choose(state, goal, history, per_batch=10, rerank_k=3):
     operations = {key: labels[key] for key in targets}
     operations.update({key: value["label"] for key, value in controls.items()})
     operations.update(DONE="Every requirement is visibly satisfied.", BLOCKED="No supported operation can progress.")
+    pg = PageObservation.from_dict(page_d)
     state_obj = {
-        "page": {k: state[k] for k in ("url", "title", "text") if k in state},
-        "recent_actions": [{k: h.get(k) for k in ("action", "kind", "text", "page_changed")} for h in history[-10:]],
+        "page": {"url": pg.url, "title": pg.title, "text": pg.text},
+        "recent_actions": [{k: h.get(k) for k in ("action", "kind", "text", "page_changed")} for h in hist[-10:]],
     }
     # 1. operation head (small menu, Laya is fine here)
     op_a = _ask("operation", operations, "Goal: %s. Rules: %s" % (goal, NEXT_ACTION), state_obj)
@@ -170,15 +226,22 @@ def choose(state, goal, history, per_batch=10, rerank_k=3):
     operation = operation_answer["choice"]
     if operation not in targets:
         choice = controls[operation]["id"] if operation in controls else operation
-        return {"choice": choice, "operation": operation, "target": None, "confidence": operation_answer["confidence"],
-                "probabilities": {choice: operation_answer["probabilities"][operation]},
-                "operation_probabilities": operation_answer["probabilities"],
-                "target_probabilities": {}, "target_confidence": None,
-                "raw_answers": {"operation": op_a},
-                "model": op_a.get("model"), "usage": {},
-                "latency_ms": round((_t.perf_counter() - started) * 1000),
-                "request": None,
-                "debug": {"batches": 0, "reranked": 0}}
+        return Decision(
+            choice=choice,
+            operation=operation,
+            target=None,
+            confidence=operation_answer["confidence"],
+            probabilities={choice: operation_answer["probabilities"][operation]},
+            operation_probabilities=operation_answer["probabilities"],
+            target_probabilities={},
+            target_confidence=None,
+            raw_answers={"operation": op_a},
+            model=op_a.get("model"),
+            usage={},
+            latency_ms=round((_t.perf_counter() - started) * 1000),
+            request=None,
+            debug={"batches": 0, "reranked": 0},
+        )
     # 2. batch target heads (<=10 each), keep winners
     cands = targets[operation]
     batches = shortlist(cands, goal, per_batch)
@@ -188,8 +251,12 @@ def choose(state, goal, history, per_batch=10, rerank_k=3):
         crit = {i: "[%s] %s" % (i, short_label(a["label"])) for i, a in b.items()}
         if len(crit) == 1:
             crit["0"] = "[0] none of the above"
-        ans = _ask(operation.lower() + "_target", crit,
-                   "Goal: %s. Pick the best target for %s. %s" % (goal, operation, TARGET), state_obj)
+        ans = _ask(
+            operation.lower() + "_target",
+            crit,
+            "Goal: %s. Pick the best target for %s. %s" % (goal, operation, TARGET),
+            state_obj,
+        )
         probs = {k: v for k, v in ans["probabilities"].items() if k != "0"}
         batch_answers.append(ans)
         if probs:
@@ -205,19 +272,31 @@ def choose(state, goal, history, per_batch=10, rerank_k=3):
         tconf = winners[0][1]
         tprobs = {target: 1.0}
     else:
-        ans = _ask(operation.lower() + "_rerank", final,
-                   "Goal: %s. Final pick for %s among shortlisted best. %s" % (goal, operation, TARGET), state_obj)
+        ans = _ask(
+            operation.lower() + "_rerank",
+            final,
+            "Goal: %s. Final pick for %s among shortlisted best. %s" % (goal, operation, TARGET),
+            state_obj,
+        )
         target_answer = validate_choice({**ans, "probabilities": dict(ans["probabilities"])}, final)
         target = target_answer["choice"]
         tconf = target_answer["confidence"]
         tprobs = target_answer["probabilities"]
     choice = cands[target]["id"]
-    return {"choice": choice, "operation": operation, "target": target,
-            "confidence": operation_answer["confidence"],
-            "probabilities": {cands[i]["id"]: (tprobs.get(i, 0)) for i in final},
-            "operation_probabilities": operation_answer["probabilities"],
-            "target_probabilities": tprobs, "target_confidence": tconf,
-            "raw_answers": {"operation": op_a, "batches": len(batches)},
-            "model": op_a.get("model"), "usage": {},
-            "latency_ms": round((_t.perf_counter() - started) * 1000), "request": None,
-            "debug": {"batches": len(batches), "reranked": len(final)}}
+    _ = _get  # keep helper referenced for future typed accessors
+    return Decision(
+        choice=choice,
+        operation=operation,
+        target=target,
+        confidence=operation_answer["confidence"],
+        probabilities={cands[i]["id"]: (tprobs.get(i, 0)) for i in final},
+        operation_probabilities=operation_answer["probabilities"],
+        target_probabilities=tprobs,
+        target_confidence=tconf,
+        raw_answers={"operation": op_a, "batches": len(batches)},
+        model=op_a.get("model"),
+        usage={},
+        latency_ms=round((_t.perf_counter() - started) * 1000),
+        request=None,
+        debug={"batches": len(batches), "reranked": len(final)},
+    )
