@@ -6,8 +6,8 @@ records prove. Import surface:
   from security.records import derive_report, validate_report
 """
 
-from .chain import GENESIS_PREV, REQUIRED, SEVERITIES, append, verify_chain, verify_finding
-from .reports import REQUIRED_REPORT_FIELDS, derive_report, validate_report
+from security.records.chain import GENESIS_PREV, REQUIRED, SEVERITIES, append, verify_chain, verify_finding
+from security.records.reports import REQUIRED_REPORT_FIELDS, derive_report, validate_report
 
 __all__ = [
     "GENESIS_PREV",

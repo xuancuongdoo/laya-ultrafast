@@ -20,7 +20,7 @@ dev = ["pytest>=8.4,<9", "ruff>=0.14,<1"]
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
+select = ["E", "F", "I", "TID252"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["ultrafast", "backends"]

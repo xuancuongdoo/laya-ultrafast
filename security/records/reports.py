@@ -12,7 +12,7 @@ import subprocess
 from datetime import date
 from pathlib import Path
 
-from .chain import verify_chain
+from security.records.chain import verify_chain
 
 REQUIRED_REPORT_FIELDS = ("title", "date", "commit", "areas", "findings", "coverage")
 

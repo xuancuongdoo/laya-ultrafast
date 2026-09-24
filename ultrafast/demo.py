@@ -27,7 +27,8 @@ def load_environment():
 def snapshot():
     if AGENT is None:
         return {"status": "idle", "history": [], "decision": None, "page": None}
-    return AGENT.snapshot()
+    snap = AGENT.snapshot()
+    return snap.to_dict() if hasattr(snap, "to_dict") else dict(vars(snap))
 
 
 class Handler(BaseHTTPRequestHandler):

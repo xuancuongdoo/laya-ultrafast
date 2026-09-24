@@ -5,6 +5,7 @@ import json
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 try:
     from browser_harness.admin import ensure_daemon
@@ -41,9 +42,25 @@ except ImportError:
         return send(method, params)
 
 
+from ultrafast.models import ActResult, ObservedAction, PageObservation
+
 # Atomically read visible content and controls, preserving actual DOM node identity.
 READ_STATE = Path(__file__).with_name("snapshot.js").read_text()
 MARKER = f"(() => {{ const state={READ_STATE}; return state?.marker ?? null; }})()"
+
+
+def _get(obj: Any, key: str, default: Any = None) -> Any:
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
+def _as_dict(obj: Any) -> dict:
+    if isinstance(obj, dict):
+        return obj
+    if hasattr(obj, "to_dict"):
+        return obj.to_dict()
+    return dict(obj)
 
 
 class StalePage(ValueError):
@@ -74,9 +91,10 @@ class Browser:
             raise StalePage("Document changed during evaluation")
         return response.get("result", {}).get("value")
 
-    def observe(self, screenshot=True):
+    def observe(self, screenshot=True) -> PageObservation:
         if getattr(self, "after_input", None):
             action, self.after_input = self.after_input, None
+            action_dict = _as_dict(action)
             # This is read-only and happens after execution was logged, even if navigation interrupts it.
             try:
                 self.call(
@@ -102,7 +120,7 @@ class Browser:
                       };
                       requestAnimationFrame(ready);
                     }))("""
-                    + json.dumps(action)
+                    + json.dumps(action_dict)
                     + ")",
                     awaitPromise=True,
                     returnByValue=True,
@@ -111,33 +129,37 @@ class Browser:
                 pass
         for attempt in range(10):
             try:
-                return browser_operation({"operation": "observe", "session": self.session, "screenshot": screenshot})
+                info = browser_operation({"operation": "observe", "session": self.session, "screenshot": screenshot})
+                return PageObservation.from_dict(info)
             except StalePage:
                 if attempt == 9:
                     raise
                 time.sleep(0.02)
         raise StalePage("Page did not settle")
 
-    def fresh(self, page, action=None):
-        if action is not None and action["kind"] in {"click", "select"}:
-            node = action["node"]
+    def fresh(self, page, action=None) -> bool:
+        page_d = _as_dict(page) if not isinstance(page, dict) else page
+        if action is not None and _get(action, "kind") in {"click", "select"}:
+            node = _get(action, "node")
             if type(node) is not int:
                 return False
             current = self.evaluate(
                 "(() => { const c=window.__ultrafast; "
                 f"return c ? [c.pageKey(),c.guard(c.nodes.get({node}))] : null; }})()"
             )
-            return current == [page["page_key"], page["guards"].get(str(node))]
-        return self.evaluate(MARKER) == page["marker"]
+            guards = _get(page, "guards") or {}
+            return current == [_get(page, "page_key"), guards.get(str(node))]
+        return self.evaluate(MARKER) == _get(page_d, "marker")
 
-    def act(self, action, page, text=None):
+    def act(self, action, page, text=None) -> ActResult:
         if not self.fresh(page, action):
             raise StalePage("Page changed since this decision. Observe again.")
-        if action["kind"] == "wait":
+        action_d = _as_dict(action) if not isinstance(action, dict) else action
+        if action_d["kind"] == "wait":
             time.sleep(0.1)
-        result = browser_operation({"operation": "act", "session": self.session, "action": action, "text": text})
-        self.after_input = action if action["kind"] != "wait" else None
-        return result
+        result = browser_operation({"operation": "act", "session": self.session, "action": action_d, "text": text})
+        self.after_input = action_d if action_d["kind"] != "wait" else None
+        return ActResult.from_dict(result)
 
     def close(self):
         if self.target:
@@ -145,9 +167,11 @@ class Browser:
             self.target = None
 
 
-def fingerprint(state):
+def fingerprint(state) -> str:
+    if not isinstance(state, dict):
+        state = state.to_dict()
     content = {k: state[k] for k in ("url", "text", "actions", "scroll")}
-    return hashlib.sha256(json.dumps(content, sort_keys=True).encode()).hexdigest()
+    return hashlib.sha256(json.dumps(content, sort_keys=True, default=str).encode()).hexdigest()
 
 
 def browser_operation(request):
@@ -229,3 +253,6 @@ def browser_operation(request):
     if request.get("screenshot", True):
         info["screenshot"] = call("Page.captureScreenshot", format="jpeg", quality=72)["data"]
     return info
+
+
+__all__ = ["Browser", "ObservedAction", "PageObservation", "StalePage", "browser_operation", "fingerprint"]

@@ -21,10 +21,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from security.orchestration.prior_evidence import PriorEvidence
 from security.reconnaissance.ledger import PHASES, CoverageLedger
 from security.records import append, derive_report, validate_report, verify_chain, verify_finding
-
-from .prior_evidence import PriorEvidence
 
 SCHEMA_PATH = Path(__file__).parent.parent / "records" / "schemas" / "report-schema.json"
 

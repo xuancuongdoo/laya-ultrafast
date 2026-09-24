@@ -1,5 +1,5 @@
 """Reconnaissance: coverage ledger and target surface tracking."""
 
-from .ledger import CoverageLedger
+from security.reconnaissance.ledger import CoverageLedger
 
 __all__ = ["CoverageLedger"]

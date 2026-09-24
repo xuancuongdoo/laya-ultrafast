@@ -25,6 +25,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from backends.mock import model as mock
+from ultrafast.models import ObservedAction, PageObservation, TaskResult
+
+
+def _get(obj, key, default=None):
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
 
 WIKI_GOAL = 'On Wikipedia, search for "Ada Lovelace" and open the Ada Lovelace mathematician article.'
 
@@ -109,7 +117,7 @@ def flight_pages():
     return [form, typed, results]
 
 
-def run_task(name, goal, page_flow, field_values):
+def run_task(name, goal, page_flow, field_values) -> TaskResult:
     """Drive choose() through page_flow; fill/click advance pages, DONE ends."""
     history = []
     decisions = []
@@ -117,40 +125,41 @@ def run_task(name, goal, page_flow, field_values):
     started = time.perf_counter()
     filled_fields = set()
     while True:
-        page = page_flow[min(page_idx, len(page_flow) - 1)]
-        page = dict(page)
-        page["actions"] = [
-            dict(a, value=field_values.get(a["id"], a.get("value", ""))) if a["id"] in filled_fields else dict(a)
-            for a in page["actions"]
+        page = PageObservation.from_dict(page_flow[min(page_idx, len(page_flow) - 1)])
+        page.actions = [
+            ObservedAction.from_dict(
+                {**a.to_dict(), "value": field_values.get(a.id, a.value)} if a.id in filled_fields else a.to_dict()
+            )
+            for a in page.actions
         ]
         d = mock.choose(page, goal, history)
         decisions.append(d)
-        if d["choice"] in ("DONE", "BLOCKED"):
-            ok = d["choice"] == "DONE"
+        if d.choice in ("DONE", "BLOCKED"):
+            ok = d.choice == "DONE"
             break
-        action = next(a for a in page["actions"] if a["id"] == d["choice"])
-        entry = {"choice": d["choice"], "kind": action["kind"]}
-        if action["kind"] == "fill":
+        action = next(a for a in page.actions if a.id == d.choice)
+        entry = {"choice": d.choice, "kind": action.kind}
+        if action.kind == "fill":
             ctx = mock.field_context(goal, action, page, history)
             value, helper = mock.field_text(ctx)
             entry["text"] = value
-            filled_fields.add(action["id"])
-            field_values = {**field_values, action["id"]: value}
+            filled_fields.add(action.id)
+            field_values = {**field_values, action.id: value}
         history.append(entry)
-        if action["kind"] in ("click", "select") and page_idx < len(page_flow) - 1:
+        if action.kind in ("click", "select") and page_idx < len(page_flow) - 1:
             page_idx += 1
         if len(decisions) > 20:
             ok = False
             break
     wall_ms = round((time.perf_counter() - started) * 1000)
-    return {
-        "task": name,
-        "success": ok,
-        "steps": len(history),
-        "decisions": len(decisions),
-        "backend_latency_ms": sum(d.get("latency_ms", 0) for d in decisions),
-        "wall_ms": wall_ms,
-    }
+    return TaskResult(
+        task=name,
+        success=ok,
+        steps=len(history),
+        decisions=len(decisions),
+        backend_latency_ms=sum(_get(d, "latency_ms", 0) for d in decisions),
+        wall_ms=wall_ms,
+    )
 
 
 def main():
@@ -168,7 +177,9 @@ def main():
     for _ in range(args.runs):
         for name, goal, flow, fv in tasks:
             runs.append(run_task(name, goal, flow, dict(fv)))
-    total_wall_ms = round((time.perf_counter() - t0) * 1000)
+    runs = [r.to_dict() for r in runs]
+    t0_done = time.perf_counter()
+    total_wall_ms = round((t0_done - t0) * 1000)
 
     # choose() latency distribution (offline, in-process): 200 timed calls.
     lat_samples = []
